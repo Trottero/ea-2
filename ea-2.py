@@ -1,4 +1,5 @@
 from IOHexperimenter import IOH_function, IOH_logger, IOHexperimenter
+from multiprocessing import Pool
 import numpy as np
 import math
 import sys
@@ -108,7 +109,6 @@ class EvolutionStrategy():
     def global_sigma(self, population):
         # Update global_sigma for entire population
         self.one_sig = self.one_sig * math.exp(np.random.normal(0, self.t0))
-        print(self.one_sig)
         population += np.random.normal(0, self.one_sig, population.shape)
         return population
 
@@ -116,7 +116,6 @@ class EvolutionStrategy():
         for y in range(population.shape[0]):
             # update sigma
             population[y, -1] = population[y, -1] * np.exp(np.random.normal(0, self.t0))
-            print(population[y, -1])
 
             # mutate
             population[y, :-1] += np.random.normal(0, population[y, -1], population.shape[1] - 1)
@@ -128,7 +127,6 @@ class EvolutionStrategy():
             for i in range(population.shape[1]//2):
                 # update sigmas
                 population[y, population.shape[1]//2+i] *= math.exp(step_size + np.random.normal(0, self.tau))
-                print(population[y, population.shape[1]//2+i])
                 # mutate
                 population[y, i] += np.random.normal(0, population[y, population.shape[1]//2 + i])
         return population   
@@ -151,7 +149,6 @@ class EvolutionStrategy():
             uncorrelated_sigmas = [] 
             for s in population[y, ((population.shape[1] - (self.n*(self.n-1))//2)//2):(population.shape[1] - (self.n*(self.n-1)//2))]:
                 uncorrelated_sigmas.append(np.random.normal(0, math.sqrt(s)))
-            print(uncorrelated_sigmas)
 
             alphas = population[y, (population.shape[1] - (self.n*(self.n-1)//2)):]
             nq = (self.n*(self.n-1)//2) - 1
@@ -222,7 +219,6 @@ class EvolutionStrategy():
 
     def select_tournament(self, population, performance):
         tournament = np.array([(x, y) for x, y in zip(population, performance)])
-
         np.random.shuffle(tournament)
 
         winners = []
@@ -298,43 +294,55 @@ def aarnoutse_witte_ES(problem):
 
 #     logger.clear_logger()
 
-
-# Population size
-# Selection type
-#   0: (u, l)
-#   1: (u + l)
-# Mutation types
-#   0: global_sigma
-#   1: one_sigma
-#   2: individual_sigma
-#   3: correlated
-# Recombination types
-#   0: global_intermediate_recombination
-#   1: intermediate_recombination
-#   2: discrete_recombination
-#   3: global_discrete_recombination
-
-
-def experiment():
-    problem_id = range(1, 2)
-    instance_id = range(1, 2)
+def experiment(configuration):
+    problem_id = range(1, 25)
+    instance_id = range(1, 26)
     dimension = [2, 5, 20]
 
-    configurations_space = [[10, 1, 3, 1], [10, 1, 0, 0]]
-    for index, configuration in enumerate(configurations_space):
-        logger = IOH_logger(
-            "./", "result", f"aarnoutse_witte-{', '.join(map(str, configuration))}", f"aarnoutse_witte-{', '.join(map(str, configuration))}")
-        for p_id in problem_id:
-            for d in dimension:
-                print(f' problem: {p_id}, dim: {d}')
-                for i_id in instance_id:
-                    # Getting the problem with corresponding id,dimension, and instance.
-                    f = IOH_function(p_id, d, i_id, suite="BBOB")
-                    f.add_logger(logger)
-                    es = EvolutionStrategy(configuration)
-                    xopt, fopt = es.optimize(f)
-        logger.clear_logger()
+    logger = IOH_logger("./", f"result-{', '.join(map(str, configuration))}", f"aarnoutse_witte-{', '.join(map(str, configuration))}", f"aarnoutse_witte-{', '.join(map(str, configuration))}")
+    for p_id in problem_id:
+        for d in dimension:
+            print(f"configuration: {', '.join(map(str, configuration))}, problem: {p_id}, dim: {d}")
+            for i_id in instance_id:
+                # Getting the problem with corresponding id,dimension, and instance.
+                f = IOH_function(p_id, d, i_id, suite="BBOB")
+                f.add_logger(logger)
+                es = EvolutionStrategy(configuration)
+                xopt, fopt = es.optimize(f)
+    logger.clear_logger()
 
 
 if __name__ == '__main__':
-    experiment()
+    # Population size
+    # Selection type
+    #   0: (u, l)
+    #   1: (u + l)
+    # Mutation types
+    #   0: global_sigma
+    #   1: one_sigma
+    #   2: individual_sigma
+    #   3: correlated
+    # Recombination types
+    #   0: global_intermediate_recombination
+    #   1: intermediate_recombination
+    #   2: discrete_recombination
+    #   3: global_discrete_recombination
+
+    configuration_space = {
+        'population_size': np.logspace(1, 4, base=2, num=4),
+        'selection_type': [0, 1],
+        'mutation_type': [0, 1, 2, 3],
+        'recombination_type': [0, 1, 2, 3],
+    }
+
+    configurations = []
+    for p in configuration_space['population_size']:
+        for s in configuration_space['selection_type']:
+            for m in configuration_space['mutation_type']:
+                for r in configuration_space['recombination_type']:
+                    configurations.append([int(p), s, m, r])
+
+    print(configurations)
+    with Pool() as p:
+        p.map(experiment, configurations)
+    # experiment(configurations)
