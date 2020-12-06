@@ -16,7 +16,8 @@ class EvolutionStrategy():
         # Mutation type:
         # Recombination type:
 
-        self.population_size = int(hyperparameters[0])
+        self.population_size = int(hyperparameters[0][0]) # (1,1) (2,15) etc
+        self.offspring_size = int(hyperparameters[0][1])
 
         self.selection_type = int(hyperparameters[1])
         self.mutation_type = int(hyperparameters[2])
@@ -61,7 +62,7 @@ class EvolutionStrategy():
 
         while not problem.final_target_hit and problem.evaluations < self.budget_base * self.n:
             # Recombination
-            recombined = self.recombine(population, 5)
+            recombined = self.recombine(population, self.offspring_size)
 
             # Mutation do some crazy shit on the offspring
             mutated = self.mutate(recombined)
@@ -327,22 +328,23 @@ if __name__ == '__main__':
     #   1: intermediate_recombination
     #   2: discrete_recombination
     #   3: global_discrete_recombination
+    # Offspring size
 
     configuration_space = {
-        'population_size': np.logspace(1, 4, base=2, num=4),
+        'selection_size': [(1, 1), (2, 3), (10, 15)],
         'selection_type': [0, 1],
         'mutation_type': [0, 1, 2, 3],
         'recombination_type': [0, 1, 2, 3],
     }
 
     configurations = []
-    for p in configuration_space['population_size']:
+    for p in configuration_space['selection_size']:
         for s in configuration_space['selection_type']:
             for m in configuration_space['mutation_type']:
                 for r in configuration_space['recombination_type']:
-                    configurations.append([int(p), s, m, r])
+                    configurations.append([p, s, m, r])
 
-    print(configurations)
+    print(configurations[0::2])
     with Pool() as p:
         p.map(experiment, configurations)
     # experiment(configurations)
